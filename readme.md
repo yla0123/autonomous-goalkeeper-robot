@@ -11,7 +11,6 @@ The project is developed and tested using the following environment:
 - **Simulator:** Gazebo Harmonic
 - **Build System:** `colcon`
 - **Languages:** C++ and Python
-- **Version Control:** Git and GitHub
 
 ## Planned components
 
