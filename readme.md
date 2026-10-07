@@ -1,7 +1,6 @@
-# MIE 1075 Autonomous Goalkeeper Robot
+# MIE1075 Project: Autonomous Goalkeeper Robot
 
-Simulation of an autonomous robotic goalkeeper for penalty kicks.
-
+This project is built for MIE1075 course and aims to build a simulation of an autonomous robotic goalkeeper for penalty kicks.
 
 ## Environment
 
