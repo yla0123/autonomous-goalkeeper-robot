@@ -1,0 +1,67 @@
+# Design example only. No node consumes this file yet.
+# Values are illustrative, not validated hardware specifications.
+# null entries must be filled from measured geometry and calibration.
+schema_version: 1
+mode: manual_sim
+hardware_enabled: false
+
+frames:
+  world: world
+  goal: goal_frame
+  goal_origin_world_m: [10.0, 0.0, 0.0]
+  goal_orientation_world_rad: [0.0, 0.0, 0.0]
+
+joints:
+  slide_name: slide_joint
+  tilt_name: tilt_joint
+  slide_axis: [0.0, 1.0, 0.0]
+  tilt_axis: [1.0, 0.0, 0.0]
+
+geometry:
+  panel_width_m: null
+  panel_length_m: null
+  pivot_height_m: null
+  panel_mass_kg: null
+  ball_radius_m: null
+
+motion:
+  slide_min_m: -0.25
+  slide_max_m: 0.25
+  slide_max_speed_mps: null
+  slide_max_acceleration_mps2: null
+  tilt_min_rad: -1.0471975512
+  tilt_max_rad: 1.0471975512
+  tilt_max_speed_radps: null
+  settling_margin_ms: null
+
+calibration:
+  slide_steps_per_mm: null
+  centered_position_steps: null
+  slide_direction_sign: 1
+  servo_center_deg: 90.0
+  servo_direction_sign: 1
+  servo_min_pulse_us: null
+  servo_max_pulse_us: null
+
+serial:
+  port: null
+  baud_rate: 115200
+  protocol_version: 1
+  max_line_bytes: 160
+  link_watchdog_ms: 300
+  max_command_ttl_ms: 300
+  transport_margin_ms: null
+  status_rate_hz: 20
+
+homing:
+  speed_mmps: null
+  timeout_ms: null
+  max_travel_mm: null
+  backoff_mm: null
+
+planning:
+  observation_max_age_ms: 100
+  command_max_age_ms: 100
+  minimum_forward_speed_mps: null
+  predictor_model: rolling_linear
+  allow_unreachable_target_motion: false

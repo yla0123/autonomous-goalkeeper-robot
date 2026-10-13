@@ -1,0 +1,16 @@
+{
+  "frame_id": "goal_frame",
+  "flight_time_from_kick_s": 0.55,
+  "elapsed_since_kick_s": 0.10,
+  "crossing_point_m": {
+    "x": 0.0,
+    "y": 0.55,
+    "z": 0.65
+  },
+  "robot_state": {
+    "slide_m": 0.0,
+    "tilt_rad": 0.0,
+    "slide_velocity_mps": 0.0,
+    "tilt_velocity_radps": 0.0
+  }
+}

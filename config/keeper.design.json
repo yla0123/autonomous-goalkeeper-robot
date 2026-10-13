@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "hardware_enabled": false,
+  "geometry": {
+    "goal_width_m": 1.5,
+    "goal_height_m": 1,
+    "panel_width_m": 0.3,
+    "panel_length_m": 0.65,
+    "panel_thickness_m": 0.015,
+    "pivot_height_m": 0.15,
+    "panel_mass_kg": 0.35,
+    "translating_mass_kg": 1.5,
+    "ball_radius_m": 0.11,
+    "minimum_overlap_m": 0.05,
+    "frame_clearance_m": 0.01
+  },
+  "motion": {
+    "slide": {
+      "minimum": -0.5,
+      "maximum": 0.5,
+      "max_speed": 2,
+      "max_acceleration": 12
+    },
+    "tilt": {
+      "minimum": -0.7853981633974483,
+      "maximum": 0.7853981633974483,
+      "max_speed": 4,
+      "max_acceleration": 20
+    }
+  },
+  "timing": {
+    "flight_time_s": 0.55,
+    "processing_and_communication_s": 0.1,
+    "settling_margin_s": 0.02
+  },
+  "planning": {
+    "slide_search_step_m": 0.01,
+    "tilt_search_step_rad": 0.03490658503988659,
+    "sample_period_s": 0.005
+  },
+  "serial": {
+    "protocol_version": 2,
+    "baud_rate": 115200,
+    "max_command_ttl_ms": 600,
+    "link_watchdog_ms": 600
+  },
+  "calibration": {
+    "slide_steps_per_mm": null,
+    "slide_center_steps": null,
+    "servo_neutral_deg": null,
+    "servo_direction_sign": null,
+    "servo_loaded_speed_radps": null,
+    "servo_loaded_acceleration_radps2": null
+  }
+}

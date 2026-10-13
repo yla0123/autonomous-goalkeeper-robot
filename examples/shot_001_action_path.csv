@@ -1,0 +1,13 @@
+time_from_kick_s,phase,slide_m,tilt_deg,event
+0.000,processing,0.0000,0.00,
+0.050,processing,0.0000,0.00,
+0.100,moving,0.0000,0.00,Start both axes
+0.150,moving,0.0150,-1.43,
+0.200,moving,0.0600,-5.73,
+0.250,moving,0.1259,-11.83,
+0.300,moving,0.1679,-15.84,
+0.345,settled,0.1800,-17.00,Blocking pose reached
+0.400,settled,0.1800,-17.00,
+0.500,settled,0.1800,-17.00,
+0.530,settled,0.1800,-17.00,
+0.550,settled,0.1800,-17.00,Ball reaches goal plane
