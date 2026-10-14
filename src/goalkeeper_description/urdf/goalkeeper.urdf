@@ -1,0 +1,121 @@
+<?xml version="1.0"?>
+<robot name="goalkeeper_robot">
+
+  <!-- Welt-Link als fester Bezugspunkt -->
+  <link name="world"/>
+
+  <!-- Feste Basis (Montagepunkt am Tor) -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="0.1 0.1 0.1"/>
+      </geometry>
+      <material name="dark_grey">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.1 0.1 0.1"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- 1. HORIZONTALE BEWEGUNG (Links <-> Rechts entlang der Torlinie / Y-Achse) -->
+  <link name="slider_carriage">
+    <visual>
+      <geometry>
+        <box size="0.05 0.2 0.1"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0.0 0.0 0.8 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.05 0.2 0.1"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.5"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <joint name="slider_joint" type="prismatic">
+    <parent link="base_link"/>
+    <child link="slider_carriage"/>
+    <origin xyz="0 0 0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/> <!-- Bewegung entlang der Y-Achse -->
+    <limit lower="-1.2" upper="1.2" effort="50.0" velocity="2.0"/>
+  </joint>
+
+
+  <!-- 2. VERTIKALE BEWEGUNG (Nach oben ausfahren / Z-Achse) -->
+  <link name="vertical_extension">
+    <visual>
+      <geometry>
+        <box size="0.05 0.1 0.4"/>
+      </geometry>
+      <material name="orange">
+        <color rgba="1.0 0.5 0.0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.05 0.1 0.4"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.5"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <joint name="vertical_joint" type="prismatic">
+    <parent link="slider_carriage"/>
+    <child link="vertical_extension"/>
+    <origin xyz="0 0 0.05" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/> <!-- Bewegung entlang der Z-Achse nach oben -->
+    <limit lower="0.0" upper="0.6" effort="30.0" velocity="1.5"/>
+  </joint>
+
+
+  <!-- 3. DIE ABWEHRPLATTE / ARME -->
+  <link name="defense_plate">
+    <visual>
+      <geometry>
+        <box size="0.05 0.6 0.2"/>
+      </geometry>
+      <material name="red">
+        <color rgba="0.8 0.0 0.0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.05 0.6 0.2"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.8"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <joint name="plate_fixed_joint" type="fixed">
+    <parent link="vertical_extension"/>
+    <child link="defense_plate"/>
+    <origin xyz="0 0 0.25" rpy="0 0 0"/>
+  </joint>
+
+</robot>
