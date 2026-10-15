@@ -1,6 +1,6 @@
 # Initial Robot Design
 
-Status: a concrete small-prototype design baseline for simulation and planning. Dimensions and axis capabilities are assumptions for an initial build; they are not measured hardware performance or a parts list.
+Status: a concrete two-axis model for simulation and planning. Dimensions and axis capabilities are software assumptions, not measured performance.
 
 ## 1. What the robot does
 
@@ -10,21 +10,19 @@ This coordinate is not necessarily the ball's current observed position. A curre
 
 The planner output is an actuator target `(slide_m, tilt_rad)`. It is a position command for the robot, not another ball coordinate. An unreachable shot produces no movement command.
 
-## 2. Mechanical baseline
+## 2. Planning geometry
 
 | Item | Initial value | Design intent |
 | --- | ---: | --- |
 | Goal opening | 1.50 m wide x 1.00 m high | Small indoor prototype, not a regulation-size goal |
-| Slide travel | -0.50 m to +0.50 m | One-meter usable lateral rail travel, centered at zero |
-| Carriage plus moving assembly | 1.50 kg | Approximate mass used for early force estimates |
-| Keeper panel | 0.30 m wide x 0.65 m long x 0.015 m thick | Lightweight blocking surface |
-| Panel mass | 0.35 kg | Placeholder pending panel material and weighing |
+| Slide travel | -0.50 m to +0.50 m | One-meter lateral motion range, centered at zero |
+| Keeper panel footprint | 0.30 m wide x 0.65 m long | Blocking surface used in the 2D coverage model |
 | Tilt pivot height | 0.15 m above floor | Pivot at the lower edge of the upright panel |
 | Tilt range | -45 deg to +45 deg | Left/right tipping in the goal plane |
 | Ball radius | 0.11 m | Approximate full-size soccer-ball geometry for the planner |
 | Minimum projected ball-panel overlap | 0.05 m | Require a 50 mm intersection in the planner's 2D footprint model |
 
-The carriage rides on a fixed horizontal rail. A stepper motor drives the carriage through a belt or lead screw. A separate servo tilts the panel around a supported shaft parallel to the shot direction. The shaft and bearings carry panel loads; the servo provides rotation torque. Use a soft, lightweight panel for early low-speed trials and provide end switches and a physical drive stop.
+The model has one lateral translation and one rotation about an axis parallel to the shot direction. The planner uses the panel footprint and swept clearance to evaluate candidate blocking poses.
 
 ## 3. Coordinate and command data
 
@@ -67,8 +65,6 @@ The planner starts both axes as soon as the coordinate is available, uses the fa
 
 The [sample action path](../examples/shot_001_action_path.csv) lists the pose at selected times. The CLI also includes action-path checkpoints in its JSON output. The path assumes both axes start at rest and follows an ideal acceleration-limited profile.
 
-For the assumed 1.50 kg moving assembly, 12 m/s^2 slide acceleration corresponds to 18 N of ideal inertial force before friction and drivetrain losses. This value helps size a later prototype; it does not select a motor. Measure loaded slide and tilt motion before relying on the 0.43-second motion window.
-
 ## 5. Software mapping
 
 The local planner is a hardware-disabled Python dry run:
@@ -94,8 +90,6 @@ python3 run_keeper.py plan --y-m 0.55 --z-m 0.65 --arrival-time-s 0.55 --elapsed
 
 Or copy and edit [the example shot](../examples/shot_001.json), then pass it with `--input path/to/shot.json`.
 
-## 6. What remains unselected
-
-The design deliberately does not name a stepper, servo, driver, rail, power supply, or ESP32 board revision. Select them after measuring actual moving mass, panel balance, rail friction, loaded tilt torque, current draw, and full-stroke response. Add position sensors if absolute feedback is required: step counts estimate carriage position, and a hobby servo's PWM command does not measure panel angle.
+## 6. Software implementation boundary
 
 The Python planner does not detect a ball, infer its velocity, create a ROS 2 message, or actuate the hardware. Those are later integration stages in the [implementation plan](implementation-plan.md). The commercial RobotKeeper's advertised performance is outside this prototype's stated design target.

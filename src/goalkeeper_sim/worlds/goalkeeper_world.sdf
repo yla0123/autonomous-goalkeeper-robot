@@ -20,34 +20,8 @@
         <diffuse>0.8 0.8 0.8 1</diffuse>
         <specular>0.2 0.2 0.2 1</specular>
         <direction>-0.5 0.1 -0.9</direction>
+
     </light>
-
-    <!-- Core Gazebo systems -->
-    <plugin
-    filename="gz-sim-physics-system"
-    name="gz::sim::systems::Physics">
-    </plugin>
-
-    <plugin
-    filename="gz-sim-user-commands-system"
-    name="gz::sim::systems::UserCommands">
-    </plugin>
-
-    <plugin
-    filename="gz-sim-scene-broadcaster-system"
-    name="gz::sim::systems::SceneBroadcaster">
-    </plugin>
-
-    <plugin
-    filename="gz-sim-apply-link-wrench-system"
-    name="gz::sim::systems::ApplyLinkWrench">
-    </plugin>
-
-    <include>
-        <uri>model://soccer_ball</uri>
-        <name>soccer_ball</name>
-        <pose> -1 0 0.12 0 0 0</pose>
-    </include>
 
     <model name="soccer_field">
         <static>true</static>
@@ -253,7 +227,7 @@
             <visual name="penalty_spot">
                 <geometry>
                     <cylinder>
-                        <radius>0.06</radius>
+                        <radius>0.12</radius>
                         <length>0.01</length>
                     </cylinder>
                 </geometry>

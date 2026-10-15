@@ -1,6 +1,6 @@
 # Design example only. No node consumes this file yet.
-# Values are illustrative, not validated hardware specifications.
-# null entries must be filled from measured geometry and calibration.
+# Values are illustrative simulation and planning parameters.
+# null entries must be filled from the selected model and timing assumptions.
 schema_version: 1
 mode: manual_sim
 hardware_enabled: false
@@ -21,7 +21,6 @@ geometry:
   panel_width_m: null
   panel_length_m: null
   pivot_height_m: null
-  panel_mass_kg: null
   ball_radius_m: null
 
 motion:
@@ -34,30 +33,15 @@ motion:
   tilt_max_speed_radps: null
   settling_margin_ms: null
 
-calibration:
-  slide_steps_per_mm: null
-  centered_position_steps: null
-  slide_direction_sign: 1
-  servo_center_deg: 90.0
-  servo_direction_sign: 1
-  servo_min_pulse_us: null
-  servo_max_pulse_us: null
-
 serial:
   port: null
   baud_rate: 115200
-  protocol_version: 1
+  protocol_version: 2
   max_line_bytes: 160
-  link_watchdog_ms: 300
-  max_command_ttl_ms: 300
+  link_watchdog_ms: 600
+  max_command_ttl_ms: 600
   transport_margin_ms: null
   status_rate_hz: 20
-
-homing:
-  speed_mmps: null
-  timeout_ms: null
-  max_travel_mm: null
-  backoff_mm: null
 
 planning:
   observation_max_age_ms: 100

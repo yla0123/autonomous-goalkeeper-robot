@@ -1,24 +1,22 @@
 # Two-Axis Goalkeeper Architecture
 
-Status: proposed framework with a local planning demo. Hardware has not been selected; ROS 2 control and physical actuation are not implemented.
+Status: proposed software framework with a local planning demo. ROS 2 control and execution adapters are not implemented.
 
 ## 1. Objective and scope
 
-Build a keeper that moves horizontally across the goal and tilts a panel left or right to block a predicted goal-plane crossing. Begin with manual targets and a small, lightweight mechanism. Connect perception only after both axes can be commanded reliably.
+Build a keeper that moves horizontally across the goal and tilts a panel left or right to block a predicted goal-plane crossing. Begin with manual targets and a two-axis simulation. Connect perception only after both axes can be commanded reliably.
 
-The system must distinguish a ball crossing point from a motor target. A crossing point describes where and when a ball reaches the goal. A motor target describes the carriage position and panel angle chosen to cover that point.
+The system must distinguish a ball crossing point from a joint target. A crossing point describes where and when a ball reaches the goal. A joint target describes the carriage position and panel angle chosen to cover that point.
 
-## 2. Mechanical arrangement
+## 2. Motion representation
 
-| Part | Function | Design boundary |
+| Element | Function | Planning requirement |
 | --- | --- | --- |
-| Fixed rail | Constrains carriage motion to the lateral direction | Measure usable travel and place independent end switches |
-| Carriage and stepper | Moves the panel pivot left or right | Use a driver matched to the motor current and ESP32 logic levels |
-| Supported pivot shaft | Carries panel weight and impact loads | The servo shaft alone should not support the complete panel |
-| Tilt servo | Rotates the keeper panel in the goal plane | Calibrate neutral position, direction, and mechanical angle limits |
-| Keeper panel | Provides the blocking footprint | Measure mass, shape, pivot location, and swept clearance |
+| Slide joint | Moves the panel pivot left or right | Define lateral travel, speed, and acceleration limits |
+| Tilt joint | Rotates the panel in the goal plane | Define the neutral angle, direction, and angular limits |
+| Panel footprint | Provides the blocking area | Define width, length, pivot location, and swept clearance |
 
-The tilt shaft points along the shot direction. This produces left/right tipping in the goal plane, rather than turning the whole robot on the floor. Model the rail as a prismatic joint and the panel pivot as a revolute joint.
+The tilt axis points along the shot direction, producing left/right tipping in the goal plane. Represent lateral motion with a prismatic joint and panel tilt with a revolute joint.
 
 ## 3. Data flow
 
@@ -32,14 +30,11 @@ flowchart TB
     Plan --> Arbiter
     Arbiter --> Command[KeeperCommand]
     Command --> Gazebo[Simulation adapter]
-    Command --> Serial[USB serial bridge]
-    Serial --> ESP32[ESP32 state machine]
-    ESP32 --> Stepper[FastAccelStepper and STEP/DIR driver]
-    ESP32 --> Servo[ESP32Servo and tilt servo]
-    Switches[Home and limit switches] --> ESP32
-    ESP32 --> Feedback[KeeperStatus]
-    Feedback --> Serial
-    Serial --> Plan
+    Command --> Adapter[External controller adapter]
+    Adapter --> Execution[Slide and tilt execution]
+    Execution --> Feedback[KeeperStatus]
+    Feedback --> Adapter
+    Adapter --> Plan
 ```
 
 Only the selected execution mode receives actuator commands. Simulation and hardware use the same high-level target contract, but have separate adapters and feedback topics. Manual and autonomous publishers must not compete for control.
@@ -55,8 +50,7 @@ Only the selected execution mode receives actuator commands. Simulation and hard
 | Interception planner | InterceptTarget and axis status | KeeperCommand candidate | Selects a reachable blocking pose before arrival |
 | Command arbiter | Manual or planned target | KeeperCommand | Enforces mode selection, limits, freshness, and arming |
 | Simulation adapter | KeeperCommand | Joint trajectory | Drives the Gazebo model with defined axis limits |
-| Serial bridge | KeeperCommand | Framed serial command | Converts SI units, tracks acknowledgments, and detects disconnects |
-| ESP32 controller | Serial command and switches | Motor outputs and KeeperStatus | Homes the slide, executes motion, and enforces local stop conditions |
+| External controller adapter | KeeperCommand | Backend command and KeeperStatus | Converts units, tracks acknowledgments, and detects disconnects |
 
 The topic names and message fields are defined in the [interface specification](interfaces.md).
 
@@ -79,9 +73,9 @@ A sampled search over candidate angles and slide positions is sufficient for the
 
 ## 6. Execution strategy
 
-Use Python ROS 2 nodes on the host and an Arduino-compatible ESP32 application for the first physical integration. Reuse FastAccelStepper for the slide and ESP32Servo for tilt. Start with USB serial and leave micro-ROS as an optional later change.
+Use Python ROS 2 nodes for target generation and system coordination. Keep the execution adapter separate so the planner depends only on joint positions, motion limits, deadlines, and feedback.
 
-The host sends carriage position and panel angle, not raw PWM or individual step pulses. The MCU owns pulse generation, local limits, homing, and communication timeout handling. Validate the two libraries together on the chosen ESP32 and pin their tested versions before integration.
+The planner outputs carriage position and panel angle. An execution adapter translates those targets into its backend's command format and reports state, completion, and faults. The existing serial codec is an optional, dry-run interface example; it does not prescribe a controller or actuator.
 
 For simulation, use the Jazzy branch of gz_ros2_control and a joint trajectory controller for slide_joint and tilt_joint. Jazzy and Gazebo Harmonic are an officially supported combination. A position interface can model the axes initially, but realistic velocity and acceleration limits must be added before interpreting interception results. [Official integration guide](https://control.ros.org/jazzy/doc/gz_ros2_control/doc/index.html)
 
@@ -89,18 +83,12 @@ For simulation, use the Jazzy branch of gz_ros2_control and a joint trajectory c
 
 Use separate states for DISARMED, HOMING, READY, MOVING, and FAULT. Homing is an explicit supervised operation. A restart or a lost connection must not trigger homing or motion automatically.
 
-Home the slide before accepting absolute position commands. On a command timeout, the slide stops using the validated deceleration behavior and the tilt command holds its current target. A latched hardware stop disables the actuator drive path. Recovery requires clearing the cause and explicitly rearming; rehome if position confidence was lost.
+Establish the joint coordinate reference before accepting absolute position commands. On a command timeout, the execution backend stops using its validated stopping behavior. Recovery requires clearing the cause and explicitly rearming; restore the coordinate reference if position confidence was lost.
 
-Step count is an estimated carriage position. A standard hobby servo reports no measured panel angle through its PWM input. Mark both limitations in status messages and logs. Add an encoder or angle sensor if measured position feedback becomes an acceptance requirement.
+Distinguish commanded, estimated, and measured axis states in status messages and logs. The adapter must identify the feedback available from its backend.
 
-## 8. Hardware selection gates
+## 8. Current implementation boundary
 
-Before purchasing actuators, measure panel mass and center of mass, desired travel, maximum tilt, target movement time, and expected ball impacts. Check servo peak torque and loaded speed, slide acceleration, driver current, power supply capacity, and mechanical clearance.
-
-The initial dimensions and rates in [keeper.design.json](../config/keeper.design.json) drive the local planner demo. They are placeholders, not validated actuator ratings or procurement recommendations. The separate [ROS example configuration](../config/keeper.example.yaml) contains fields for later simulation and hardware integration.
-
-## 9. Current implementation boundary
-
-The existing goalkeeper_sim package contains a static field and goal. A local Python planner accepts a predicted goal-plane coordinate and returns a candidate two-axis target under the assumptions in `config/keeper.design.json`. It is hardware-disabled and only previews the serial protocol line. The repository still has no executable ROS 2 nodes, robot URDF, camera pipeline, serial connection, or flashable firmware.
+The existing goalkeeper_sim package contains a static field and goal. A local Python planner accepts a predicted goal-plane coordinate and returns a candidate two-axis target under the assumptions in [keeper.design.json](../config/keeper.design.json). These values define a software model, not demonstrated motion performance. The planner is hardware-disabled and only previews the serial protocol line. The repository still has no executable ROS 2 nodes, robot URDF, camera pipeline, or connected execution adapter. The separate [ROS example configuration](../config/keeper.example.yaml) contains fields for later software integration.
 
 Use the [implementation plan](implementation-plan.md) to build and validate these components in order.
