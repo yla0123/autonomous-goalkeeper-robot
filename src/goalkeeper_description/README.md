@@ -1,9 +1,9 @@
 # Goalkeeper Description
 
-Status: proposed module; ROS 2 package files and model are not implemented.
+Status: an ament_cmake description package with a generated human-shaped URDF. A joint execution controller is not implemented.
 
-Create a two-axis keeper model with slide_joint translating along +Y and tilt_joint rotating about +X. Define the translating base, panel footprint, pivot location, collision geometry, simulation inertial properties, and joint limits.
+The model has slide_joint translating along +Y and tilt_joint rotating about +X. Eleven boxes represent the head, neck, torso, arms, gloves, legs, and feet. Their collision dimensions match the planner's occupied footprint in config/keeper.design.json.
 
-Keep physical dimensions separate from the full-size field in the existing world. Reuse the same panel footprint in the planner and simulation.
+The nominal body is 1.90 m tall with a 1.90 m arm span. It uses a 1.00 m hip-like pivot, 0.05 m upright foot clearance, and approximate 85 kg simulation inertia. These are modelling choices, not FIFA requirements or human biomechanics. Run python3 tools/generate_geometry.py from the repository root after changing the configuration.
 
 See the [architecture](../../docs/architecture.md) and [coordinate conventions](../../docs/interfaces.md).

@@ -1,7 +1,7 @@
 # Design example only. No node consumes this file yet.
 # Values are illustrative simulation and planning parameters.
 # null entries must be filled from the selected model and timing assumptions.
-schema_version: 1
+schema_version: 3
 mode: manual_sim
 hardware_enabled: false
 
@@ -18,20 +18,24 @@ joints:
   tilt_axis: [1.0, 0.0, 0.0]
 
 geometry:
-  panel_width_m: null
-  panel_length_m: null
-  pivot_height_m: null
-  ball_radius_m: null
+  # The complete body-part footprint is defined in keeper.design.json.
+  goal_width_m: 7.32
+  goal_height_m: 2.44
+  keeper_height_m: 1.90
+  keeper_arm_span_m: 1.90
+  pivot_height_m: 1.00
+  ball_radius_m: 0.11
 
 motion:
-  slide_min_m: -0.25
-  slide_max_m: 0.25
-  slide_max_speed_mps: null
-  slide_max_acceleration_mps2: null
-  tilt_min_rad: -1.0471975512
-  tilt_max_rad: 1.0471975512
-  tilt_max_speed_radps: null
-  settling_margin_ms: null
+  slide_min_m: -3.20
+  slide_max_m: 3.20
+  slide_max_speed_mps: 2.0
+  slide_max_acceleration_mps2: 12.0
+  tilt_min_rad: -0.7853981633974483
+  tilt_max_rad: 0.7853981633974483
+  tilt_max_speed_radps: 4.0
+  tilt_max_acceleration_radps2: 20.0
+  settling_margin_ms: 20
 
 serial:
   port: null

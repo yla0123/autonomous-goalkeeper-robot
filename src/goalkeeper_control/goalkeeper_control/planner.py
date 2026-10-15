@@ -11,30 +11,29 @@ def grid(lower, upper, step):
     return [min(upper, lower + index * step) for index in range(count + 1)]
 
 
-def panel_corners(slide, tilt, design):
+def keeper_corners(slide, tilt, design):
     c, s = math.cos(tilt), math.sin(tilt)
     return [
         [slide + u * c - v * s, design.pivot_height_m + u * s + v * c]
-        for u, v in [
-            (-design.panel_width_m / 2, 0), (design.panel_width_m / 2, 0),
-            (design.panel_width_m / 2, design.panel_length_m),
-            (-design.panel_width_m / 2, design.panel_length_m),
-        ]
+        for part in design.footprint for u, v in part.corners()
     ]
 
 
-def signed_panel_distance(y, z, slide, tilt, design):
+def signed_keeper_distance(y, z, slide, tilt, design):
     c, s = math.cos(tilt), math.sin(tilt)
     dy, dz = y - slide, z - design.pivot_height_m
     local_y = dy * c + dz * s
     local_z = -dy * s + dz * c
-    qy = abs(local_y) - design.panel_width_m / 2
-    qz = abs(local_z - design.panel_length_m / 2) - design.panel_length_m / 2
-    return math.hypot(max(qy, 0), max(qz, 0)) + min(max(qy, qz), 0)
+    distances = []
+    for part in design.footprint:
+        qy = abs(local_y - part.center_y_m) - part.width_m / 2
+        qz = abs(local_z - part.center_z_m) - part.height_m / 2
+        distances.append(math.hypot(max(qy, 0), max(qz, 0)) + min(max(qy, qz), 0))
+    return min(distances)
 
 
 def covers(target, slide, tilt, design):
-    distance = signed_panel_distance(target.y_m, target.z_m, slide, tilt, design)
+    distance = signed_keeper_distance(target.y_m, target.z_m, slide, tilt, design)
     return distance <= design.ball_radius_m - design.minimum_overlap_m + 1e-10
 
 
@@ -58,8 +57,8 @@ def swept_clearance(start, slide, tilt, design):
     low_angle, high_angle = sorted([start.tilt_rad, tilt])
     low_slide, high_slide = sorted([start.slide_m, slide])
     ys, zs = [], []
-    for u in (-design.panel_width_m / 2, design.panel_width_m / 2):
-        for v in (0, design.panel_length_m):
+    for part in design.footprint:
+        for u, v in part.corners():
             ylo, yhi = trig_bounds(u, -v, low_angle, high_angle)
             zlo, zhi = trig_bounds(v, u, low_angle, high_angle)
             ys.extend([low_slide + ylo, high_slide + yhi])
@@ -81,7 +80,7 @@ def plan(target, design, state=None):
     remaining = target.arrival_time_s - target.elapsed_since_kick_s
     budget = remaining - design.settling_margin_s
     result = {
-        "schema_version": 2, "mode": "planning_only", "hardware_enabled": False,
+        "schema_version": 3, "mode": "planning_only", "hardware_enabled": False,
         "reachable": False, "reason": None,
         "target": asdict(target), "initial_state": asdict(state),
         "time_to_goal_s": round(remaining, 9),
@@ -91,7 +90,8 @@ def plan(target, design, state=None):
         "model_assumptions": [
             "Known goal-plane ball-center coordinate; no camera processing is implemented.",
             "Both axes initially stationary; capabilities are unverified design assumptions.",
-            "Rigid rectangular panel; 2D geometric contact is not a demonstrated save.",
+            "Rigid human-shaped union of body parts; 2D contact is not a demonstrated save.",
+            "Goal opening follows IFAB Law 1; keeper proportions and motion limits are model assumptions.",
             "Processing and communication are already included in elapsed_since_kick_s.",
         ],
     }
@@ -116,7 +116,7 @@ def plan(target, design, state=None):
     best, geometry_found, feasible_found = None, False, False
     for angle in angles:
         angle_time = minimum_time(angle - state.tilt_rad, design.tilt)
-        # An extra candidate aligns the panel centerline with the crossing point.
+        # An extra candidate aligns the body centerline with the crossing point.
         extra = target.y_m
         if abs(math.cos(angle)) > 1e-6:
             extra += (target.z_m - design.pivot_height_m) * math.tan(angle)
@@ -130,7 +130,8 @@ def plan(target, design, state=None):
                 continue
             feasible_found = True
             slide_time = minimum_time(slide - state.slide_m, design.slide)
-            required = max(slide_time, angle_time)
+            # A stationary blocking pose still needs a positive codec duration.
+            required = max(slide_time, angle_time, 0.001)
             if required > budget + 1e-9:
                 continue
             score = (required, abs(slide - state.slide_m) + 0.15 * abs(angle - state.tilt_rad),
@@ -140,12 +141,12 @@ def plan(target, design, state=None):
     if best is None:
         result["reason"] = ("DEADLINE_TOO_SHORT" if feasible_found else
                             "SWEPT_FRAME_COLLISION" if geometry_found else
-                            "NO_PANEL_COVERAGE")
+                            "NO_KEEPER_COVERAGE")
         return result
     _, slide, angle, slide_time, angle_time = best
     # Finish as soon as the slower axis can complete. Moving immediately and
     # holding the blocking pose leaves more time before the ball arrives.
-    motion_duration = max(slide_time, angle_time)
+    motion_duration = max(slide_time, angle_time, 0.001)
     slide_profile = Profile.create(state.slide_m, slide, motion_duration, design.slide)
     tilt_profile = Profile.create(state.tilt_rad, angle, motion_duration, design.tilt)
     result.update(reachable=True, reason="REACHABLE", command={
@@ -159,7 +160,7 @@ def plan(target, design, state=None):
         "slide_peak_speed_mps": slide_profile.peak_speed,
         "tilt_peak_speed_radps": tilt_profile.peak_speed,
         "geometric_overlap_m": design.ball_radius_m -
-            signed_panel_distance(target.y_m, target.z_m, slide, angle, design),
+            signed_keeper_distance(target.y_m, target.z_m, slide, angle, design),
     })
     return result
 

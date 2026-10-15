@@ -1,5 +1,6 @@
 """Command-line entry point for the local, hardware-disabled planner demo."""
 import argparse
+import csv
 import json
 import math
 from pathlib import Path
@@ -21,6 +22,8 @@ def _load_json(path):
 
 def _shot_from_args(args, design):
     raw = _load_json(args.input) if args.input is not None else {}
+    if args.command == "demo" and args.input is None and args.y_m is None and args.z_m is None:
+        raw = {"crossing_point_m": {"x": 0.0, "y": 1.3, "z": 1.4}}
     if not isinstance(raw, dict):
         raise ValueError("Shot input must be a JSON object")
     point = raw.get("crossing_point_m", {})
@@ -60,9 +63,10 @@ def _build_parser(root):
         prog="run_keeper.py",
         description="Plan a two-axis goalkeeper pose from a predicted ball crossing coordinate.",
     )
-    parser.add_argument("command", choices=("demo", "plan"), help="demo uses the included shot example")
+    parser.add_argument("command", choices=("demo", "plan"), help="demo uses a built-in crossing coordinate")
     parser.add_argument("--config", type=Path, default=root / "config" / "keeper.design.json")
     parser.add_argument("--input", type=Path, help="shot JSON with crossing_point_m and timing fields")
+    parser.add_argument("--path-csv", type=Path, help="export the complete modeled action path as CSV")
     parser.add_argument("--y-m", type=float, help="predicted ball-center crossing coordinate along the goal line")
     parser.add_argument("--z-m", type=float, help="predicted ball-center height at the goal line")
     parser.add_argument("--arrival-time-s", type=float, help="total ball flight time from kick to goal plane")
@@ -99,13 +103,17 @@ def _path_checkpoints(rows, step_s=0.05):
 def main(root, argv=None):
     parser = _build_parser(root)
     args = parser.parse_args(argv)
-    if args.command == "demo" and args.input is None:
-        args.input = root / "examples" / "shot_001.json"
     try:
         design = Design.load(args.config)
         target, state = _shot_from_args(args, design)
         result = plan(target, design, state)
         path_rows = trajectory(result, design)
+        if args.path_csv is not None:
+            args.path_csv.parent.mkdir(parents=True, exist_ok=True)
+            with args.path_csv.open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=list(path_rows[0]))
+                writer.writeheader()
+                writer.writerows(path_rows)
         output = {
             "mode": "planning_only",
             "hardware_enabled": False,
@@ -127,7 +135,7 @@ def main(root, argv=None):
             "serial_preview": encode_plan(result, design, args.sequence) if result["reachable"] else None,
             "warning": "This is a software dry run. It does not open a serial port or move hardware.",
         }
-    except (ValueError, TypeError, KeyError, OverflowError) as exc:
+    except (ValueError, TypeError, KeyError, OverflowError, OSError) as exc:
         print(f"Input error: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(output, indent=2, allow_nan=False))

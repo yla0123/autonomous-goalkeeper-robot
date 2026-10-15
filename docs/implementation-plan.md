@@ -2,7 +2,7 @@
 
 ## 1. Repository layout
 
-The repository includes a local Python planner demo. ROS 2 package metadata, nodes, robot description, and execution adapters remain to be implemented.
+The repository includes a local planner, a generated human-shaped URDF, a Gazebo launch file, and a ROS 2 shooter node. Interception ROS nodes, custom messages, perception, and joint execution remain to be implemented.
 
 ```text
 autonomous-goalkeeper-robot/
@@ -16,26 +16,26 @@ autonomous-goalkeeper-robot/
 |-- config/
 |   |-- keeper.design.json
 |   `-- keeper.example.yaml
-|-- examples/
-|   |-- shot_001.json
-|   `-- shot_001_action_path.csv
 |-- run_keeper.py
+|-- tools/generate_geometry.py      Shared-config geometry generator
+|-- tests/test_regulation_geometry.py
 `-- src/
     |-- goalkeeper_sim/             Existing static world and package scaffold
-    |-- goalkeeper_description/     Proposed two-axis model
+    |-- goalkeeper_description/     Generated adult-sized slide/tilt model
     |-- goalkeeper_interfaces/      Proposed custom messages
     |-- goalkeeper_control/         Local planner demo; ROS 2 nodes and adapters proposed
     |-- goalkeeper_perception/      Proposed detector, tracker, and predictor
-    `-- goalkeeper_bringup/         Proposed launch and mode configuration
+    |-- goalkeeper_bringup/         Proposed control launch and mode configuration
+    `-- penalty_shooter/            Existing ROS 2 shooter source
 ```
 
 ## 2. Stages and acceptance checks
 
 | Stage | Work | Acceptance check |
 | --- | --- | --- |
-| 1. Geometry and interface | Review the initial design values in `docs/robot-design.md`; replace them with measured prototype dimensions | Known crossing coordinates map to the expected blocking pose and clear the frame |
+| 1. Geometry and interface | Use the regulation goal and adult silhouette in `docs/robot-design.md`; regenerate assets after configuration changes | Goal inside edges and URDF body parts match the planner; gaps remain unoccupied |
 | 2. Local planning baseline | Use the Python dry run to inspect coverage and reachability under the example limits | Reachable and unreachable target cases are correctly reported before connecting hardware |
-| 3. Two-axis simulation | Add a two-axis URDF/SDF and Gazebo control adapter | Slide and tilt targets use the expected units, signs, and limits |
+| 3. Two-axis simulation | Connect the generated slide/tilt URDF to a Gazebo control adapter | Slide and tilt targets use the expected units, signs, and limits |
 | 4. Manual control | Implement KeeperCommand, command arbitration, and simulation status | Both axes reach repeated targets; invalid or expired commands are rejected |
 | 5. Execution adapter contract | Define backend-independent commands, feedback, and failure handling | A mock adapter reports acceptance, completion, timeout, and disconnect outcomes separately |
 | 6. Perception baseline | Fix the camera, calibrate its transform, detect a colored ball, estimate velocity | Position estimates are compared with known locations and report invalid data when the ball is lost |
@@ -55,7 +55,7 @@ Use the stated geometry and timing assumptions as software acceptance criteria. 
 | goalkeeper_bringup | manual_sim.launch.py; autonomous_sim.launch.py; backend configuration | Load consistent configuration and exactly one execution backend |
 | goalkeeper_sim | Spawn configuration, ball and camera models, world resource installation | Extend the current static scene; install resources for package-based launch |
 
-The local planner demo is available through `python3 run_keeper.py demo` (or `py run_keeper.py demo` on Windows with Python installed). The planned ROS 2 files are not available to run in the current branch.
+The local planner runs through `python3 run_keeper.py demo`; add `--path-csv action_path.csv` for its movement path. The demo uses a built-in coordinate. The Gazebo model and shooter ROS packages have implementation files, while the proposed interception control and perception nodes remain unavailable. Model spawning and end-to-end interception still require ROS/Gazebo runtime validation.
 
 ## 4. Integration choices
 

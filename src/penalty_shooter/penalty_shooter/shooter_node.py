@@ -1,37 +1,46 @@
-import os
 import rclpy
 from rclpy.node import Node
 from ament_index_python.packages import get_package_share_directory
+import json
+from pathlib import Path
 
 from ros_gz_interfaces.msg import EntityWrench
 from ros_gz_interfaces.msg import Entity
 from ros_gz_interfaces.srv import DeleteEntity, SpawnEntity
 
+# import math
 import random
 
 class PenaltyShooter(Node): 
+    # inherit from Node
+
     def __init__(self):
         super().__init__('penalty_shooter')
 
         self.publisher = self.create_publisher(EntityWrench, '/world/goalkeeper_world/wrench', 10)
+
         self._delete_client = self.create_client(DeleteEntity, 'world/goalkeeper_world/remove')
+
         self._spawn_client = self.create_client(SpawnEntity, '/world/goalkeeper_world/create')
 
-        # Dynamischer Pfad zum Ball-Modell über das goalkeeper_sim-Paket
-        sim_pkg = get_package_share_directory('goalkeeper_sim')
-        self._ball_model_path = os.path.join(sim_pkg, 'models', 'soccer_ball', 'model.sdf')
+        sim_share = Path(get_package_share_directory('goalkeeper_sim'))
+        self._ball_model_path = sim_share / 'models' / 'soccer_ball' / 'model.sdf'
+        design = json.loads((sim_share / 'config' / 'keeper.design.json').read_text(encoding='utf-8'))
+        geometry = design['geometry']
 
-        # Rest des Codes bleibt gleich...
+        # start the shot after 1 sec
         self._kick_timer = self.create_timer(1.0, self._kick_after_reset) 
 
-        self._ball_x = -1.0
+        # Initial position
+        self._goal_x = geometry['goal_plane_world_x_m']
+        self._goal_width = geometry['goal_width_m']
+        self._goal_height = geometry['goal_height_m']
+        self._ball_x = self._goal_x - geometry['penalty_distance_m']
         self._ball_y = 0.0
-        self._ball_z = 0.11
+        self._ball_z = geometry['ball_radius_m']
+        self._flight_time = design['timing']['flight_time_s']
 
         self._ball_mass = 0.43
-        self._goal_x = 10.0
-
-    # (Die restlichen Methoden bleiben unverändert wie in deinem Skript)
 
     def kick_ball(self):
 
@@ -167,9 +176,10 @@ class PenaltyShooter(Node):
     
     def generate_shot(self):
         target_x = self._goal_x
-        target_y = random.uniform(-3.2, 3.2)
-        target_z = random.uniform(0.3, 2.2)
-        flight_time = random.uniform(0.5, 0.9)
+        margin = self._ball_z + 0.05
+        target_y = random.uniform(-self._goal_width / 2 + margin, self._goal_width / 2 - margin)
+        target_z = random.uniform(margin, self._goal_height - margin)
+        flight_time = self._flight_time
 
         return target_x, target_y, target_z, flight_time
 

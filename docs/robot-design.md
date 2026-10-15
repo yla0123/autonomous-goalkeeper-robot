@@ -1,95 +1,88 @@
-# Initial Robot Design
+# Regulation-Size Goal and Adult Goalkeeper Model
 
-Status: a concrete two-axis model for simulation and planning. Dimensions and axis capabilities are software assumptions, not measured performance.
+Status: software planning and generated Gazebo geometry. The goal uses regulation 11-a-side dimensions. The keeper is an adult-sized rigid silhouette with the original sideways movement and left/right tilt.
 
-## 1. What the robot does
+## 1. Input and movement
 
-The first software input is the ball-center coordinate where the ball is predicted to cross the goal plane, plus the predicted time from the kick to that crossing. The planner chooses a carriage position and panel angle that cover that point and fit the remaining motion time.
+The input is the ball-centre coordinate where the ball is predicted to cross the goal plane, plus its arrival time. In `goal_frame`, the goal plane is `x = 0`; the planner accepts `(0, y, z)` and returns the robot target `(slide_m, tilt_rad)`. A current ball position first needs a crossing prediction.
 
-This coordinate is not necessarily the ball's current observed position. A current field coordinate `(x, y, z)` needs a velocity estimate and a crossing-time prediction before it can be used by this planner. The first planner accepts `(0, y, z)` in `goal_frame`, where `x = 0` is the goal plane.
-
-The planner output is an actuator target `(slide_m, tilt_rad)`. It is a position command for the robot, not another ball coordinate. An unreachable shot produces no movement command.
+The two controlled axes are `slide_joint` along +Y and `tilt_joint` about +X. Positive tilt tips the upper body toward -Y. Head, torso, arms, gloves, legs, and feet form one rigid body. Individual limb movement, jumping, and athlete biomechanics are outside this model.
 
 ## 2. Planning geometry
 
-| Item | Initial value | Design intent |
+| Item | Value | Basis |
 | --- | ---: | --- |
-| Goal opening | 1.50 m wide x 1.00 m high | Small indoor prototype, not a regulation-size goal |
-| Slide travel | -0.50 m to +0.50 m | One-meter lateral motion range, centered at zero |
-| Keeper panel footprint | 0.30 m wide x 0.65 m long | Blocking surface used in the 2D coverage model |
-| Tilt pivot height | 0.15 m above floor | Pivot at the lower edge of the upright panel |
-| Tilt range | -45 deg to +45 deg | Left/right tipping in the goal plane |
-| Ball radius | 0.11 m | Approximate full-size soccer-ball geometry for the planner |
-| Minimum projected ball-panel overlap | 0.05 m | Require a 50 mm intersection in the planner's 2D footprint model |
+| Goal clear opening | 7.32 m wide x 2.44 m high | IFAB Law 1: inside faces of posts and underside of crossbar |
+| Penalty mark | 11.00 m from the back edge of the goal line | IFAB Law 1 |
+| Goal member diameter | 0.12 m | Model choice within the Law 1 maximum |
+| Keeper body height | 1.90 m, sole to crown | Generic adult goalkeeper assumption |
+| Hand-to-hand span | 1.90 m | Model assumption with arms extended sideways |
+| Torso width | 0.50 m | Model assumption; limbs have separate blocking shapes |
+| Nominal body mass | 85 kg | Simulation inertia assumption, not a FIFA requirement |
+| Slide joint travel | -3.20 m to +3.20 m | Model limit; full-body clearance further restricts poses near the posts |
+| Tilt range | -45 deg to +45 deg | Original left/right tilt motion |
+| Hip-like pivot height | 1.00 m above the ground | Fixed robot pivot shared by the planner and URDF |
+| Upright foot clearance | 0.05 m | Mounted silhouette; allows continuous tilt without feet entering the floor |
+| Upright crown height | 1.95 m above the ground | 1.90 m body plus 0.05 m mounting clearance |
+| Ball radius | 0.11 m | Approximate size-5 ball geometry |
+| Contact allowance | At least 0.05 m in the distance-based footprint check | Planning margin, not a measured save criterion |
 
-The model has one lateral translation and one rotation about an axis parallel to the shot direction. The planner uses the panel footprint and swept clearance to evaluate candidate blocking poses.
+The goal dimensions are official. FIFA does not prescribe one goalkeeper height or arm span. The [FIFA 2022 squad lists](https://fdp.fifa.org/assetspublic/ce44/pdf/SquadLists-English.pdf) list Manuel Neuer at 1.93 m and Thibaut Courtois at 1.99 m. The 1.90 m keeper here is a generic modelling choice, not a tournament average or a particular player's digital replica. See [IFAB Law 1](https://theifab.com/laws/latest/the-field-of-play/) for the official goal and penalty-mark measurements.
 
-## 3. Coordinate and command data
+![Regulation goal and adult goalkeeper scale](images/goalkeeper-scale.svg)
 
-Use meters, radians, and seconds in the planner. Positive `y` follows the existing `goal_frame` convention. Positive panel angle follows the right-hand rotation about +X already described in the [interface specification](interfaces.md).
+## 3. Shared geometry and coverage
 
-Example predicted shot input:
+[keeper.design.json](../config/keeper.design.json) is the source for the planner and generated robot geometry. Eleven body-part rectangles define the union of occupied blocking regions. Empty space around the head, between arms and torso, and between the legs is not filled by a single large rectangle.
 
-```json
-{
-  "frame_id": "goal_frame",
-  "flight_time_from_kick_s": 0.55,
-  "elapsed_since_kick_s": 0.10,
-  "crossing_point_m": {"x": 0.0, "y": 0.55, "z": 0.65},
-  "robot_state": {
-    "slide_m": 0.0,
-    "tilt_rad": 0.0,
-    "slide_velocity_mps": 0.0,
-    "tilt_velocity_radps": 0.0
-  }
-}
+Gazebo collision boxes use the same body parts and dimensions. The planner transforms them for slide and tilt, checks contact against the nearest occupied part, and checks the swept body against the floor, posts, and crossbar. Its swept bound is conservative and may reject a synchronized path that would actually fit. This is a 2D geometric contact test, not an impact or save model.
+
+The goal plane is at world X = 10.00 m. Goal-member centres are at X = 9.94 m, so their back edge is at the goal plane. Post centres are at Y = +/-3.72 m and the crossbar centre is at Z = 2.50 m. With 0.06 m radii, the clear opening is exactly 7.32 m x 2.44 m. The penalty spot and initial ball are at world X = -1.00 m. The existing field is a cropped penalty-training scene.
+
+After changing the geometry configuration, regenerate the assets, then rebuild the ROS packages:
+
+```text
+python3 tools/generate_geometry.py
 ```
 
-The crossing coordinate is the ball center at the goal plane. The planner expands the panel's blocking footprint by the ball radius, requires at least 50 mm of projected overlap, then searches candidate slide and tilt targets. It also checks axis travel and whether the panel's swept path clears the goal frame.
+The generator updates the URDF, goal geometry, penalty mark, initial ball position, and scale drawing.
 
-## 4. Timing requirement
-
-The initial timing case uses the assumptions supplied for this project:
+## 4. Timing and reachability
 
 | Timing item | Value | Status |
 | --- | ---: | --- |
-| Ball flight from kick to goal plane | 0.55 s | Example shot assumption |
-| Detection, prediction, and communication | 0.10 s | Budget assumption to measure later |
-| Time remaining after processing | 0.45 s | 0.55 s - 0.10 s |
-| Arrival and settling reserve | 0.02 s | Initial design margin; verify experimentally |
-| Maximum planned axis motion window | 0.43 s | 0.45 s - 0.02 s |
+| Kick to goal-plane crossing | 0.55 s | User-supplied shot assumption |
+| Recognition, prediction, and communication | 0.10 s | Budget example to measure later |
+| Time remaining | 0.45 s | 0.55 - 0.10 s |
+| Settling reserve | 0.02 s | Model margin |
+| Available axis motion time | 0.43 s | 0.45 - 0.02 s |
 
-The axes move at the same time. The initial software limits are 2.0 m/s and 12 m/s^2 for the slide, and 4.0 rad/s and 20 rad/s^2 for tilt. Under a rest-to-rest trapezoidal model, moving the slide the full 0.50 m from center requires about 0.417 s at its limits. A 45-degree tilt requires about 0.396 s at its limits. These are calculated lower bounds from assumed limits, not demonstrated movement times. A target can still be unreachable because of panel-frame collision, initial movement, load, tracking error, or an incorrect speed assumption.
+Speed and acceleration assumptions remain 2.0 m/s and 12 m/s^2 for slide, and 4.0 rad/s and 20 rad/s^2 for tilt. They are not measured athlete or robot performance. Enlarging the goal does not make every shot reachable: a 3.20 m translation from centre alone requires about 1.767 s under these limits. The planner reports unreachable shots instead of inventing faster motion.
 
-The planner starts both axes as soon as the coordinate is available, uses the fastest profile allowed by its configured speed and acceleration, and holds the blocking pose until the predicted ball arrival. For the included sample crossing point `(0, 0.55, 0.65) m`, the design model selects approximately `slide = +0.18 m`, `tilt = -17 deg`. It reaches this pose about 0.245 s after movement starts, at about 0.345 s after the kick, then holds until the ball reaches the goal plane at 0.55 s. This is a modeled path, not measured robot performance.
+The offline sampled search has not been optimized or validated against the 0.10 s processing budget. Its execution time must be measured before real-time use.
 
-The [sample action path](../examples/shot_001_action_path.csv) lists the pose at selected times. The CLI also includes action-path checkpoints in its JSON output. The path assumes both axes start at rest and follows an ideal acceleration-limited profile.
+For the built-in crossing point `(0, 1.30, 1.40) m`, the model selects approximately `slide = +0.22 m` and `tilt = -9 deg`. Movement begins at 0.10 s, finishes at about 0.371 s after the kick, and holds through the 0.55 s arrival. This is a calculated trajectory.
 
-## 5. Software mapping
+## 5. Run and inspect the action path
 
-The local planner is a hardware-disabled Python dry run:
-
-1. Read a predicted goal-plane crossing coordinate and the robot's current estimated pose.
-2. Reject invalid coordinates and shots outside the opening.
-3. Search slide and tilt combinations for panel coverage and swept frame clearance.
-4. Estimate each axis's rest-to-rest movement time and compare the slower axis with the motion deadline.
-5. Return an absolute slide position and tilt angle only when the candidate is reachable.
-6. Show a protocol-v2 serial line preview for inspection; it is never transmitted.
-
-Run the included example from this repository root:
+The demo has a built-in input and needs no example-data folder:
 
 ```text
 python3 run_keeper.py demo
+python3 run_keeper.py demo --path-csv action_path.csv
+python3 run_keeper.py plan --y-m 1.30 --z-m 1.40 --arrival-time-s 0.55 --elapsed-s 0.10
 ```
 
-Plan a different predicted crossing point directly:
+Use `--input path/to/shot.json` for custom data containing `crossing_point_m`, `flight_time_from_kick_s`, `elapsed_since_kick_s`, and optional `robot_state`. Coordinates use metres, angles radians, and times seconds.
+
+JSON output includes timing, reachability, the selected pose, action-path checkpoints, and a serial codec preview. CSV export includes the complete time-indexed path. No serial connection is opened and no robot is moved.
+
+## 6. Validation and implementation boundary
 
 ```text
-python3 run_keeper.py plan --y-m 0.55 --z-m 0.65 --arrival-time-s 0.55 --elapsed-s 0.10
+python3 tests/test_regulation_geometry.py -v
 ```
 
-Or copy and edit [the example shot](../examples/shot_001.json), then pass it with `--input path/to/shot.json`.
+The checks cover the clear goal opening, penalty distance, matching URDF and planner geometry, empty-space handling, preserved slide/tilt axes, motion limits, deadlines, stationary poses, and CSV export.
 
-## 6. Software implementation boundary
-
-The Python planner does not detect a ball, infer its velocity, create a ROS 2 message, or actuate the hardware. Those are later integration stages in the [implementation plan](implementation-plan.md). The commercial RobotKeeper's advertised performance is outside this prototype's stated design target.
+The repository includes a ROS 2 shooter node, a robot-description package, and a Gazebo launch file. Executing a planned joint path, implementing custom ROS messages and perception, and verifying an end-to-end save remain integration work. A model and passing planner tests do not establish a physical save rate.

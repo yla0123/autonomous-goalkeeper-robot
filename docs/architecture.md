@@ -1,6 +1,6 @@
 # Two-Axis Goalkeeper Architecture
 
-Status: proposed software framework with a local planning demo. ROS 2 control and execution adapters are not implemented.
+Status: software framework with a local planning demo, generated adult keeper URDF, Gazebo launch, and ROS 2 shooter source. ROS 2 interception control and execution adapters are not implemented.
 
 ## 1. Objective and scope
 
@@ -14,9 +14,11 @@ The system must distinguish a ball crossing point from a joint target. A crossin
 | --- | --- | --- |
 | Slide joint | Moves the panel pivot left or right | Define lateral travel, speed, and acceleration limits |
 | Tilt joint | Rotates the panel in the goal plane | Define the neutral angle, direction, and angular limits |
-| Panel footprint | Provides the blocking area | Define width, length, pivot location, and swept clearance |
+| Human-shaped footprint | Provides the blocking area | Use the union of head, torso, arm, glove, leg, and foot shapes; preserve gaps |
 
 The tilt axis points along the shot direction, producing left/right tipping in the goal plane. Represent lateral motion with a prismatic joint and panel tilt with a revolute joint.
+
+The shared model uses the regulation 7.32 m x 2.44 m goal opening and a generic 1.90 m-tall keeper with a 1.90 m arm span. The body rotates as one rigid silhouette about a 1.00 m pivot. Keeper proportions and motion limits are modelling assumptions; only the goal and penalty-mark measurements follow IFAB Law 1. See the [robot design](robot-design.md).
 
 ## 3. Data flow
 
@@ -62,7 +64,7 @@ In goal_frame the goal plane is x = 0. A ball approaching from x < 0 with positi
 
 The planner should:
 
-1. Transform the panel footprint for candidate carriage positions and tilt angles.
+1. Transform each occupied body-part footprint for candidate carriage positions and tilt angles.
 2. Check whether that footprint intersects the ball's predicted cross-section.
 3. Reject candidates outside travel, angle, or swept-clearance limits.
 4. Estimate motion time from the current axis state and measured acceleration and speed limits.
@@ -89,6 +91,6 @@ Distinguish commanded, estimated, and measured axis states in status messages an
 
 ## 8. Current implementation boundary
 
-The existing goalkeeper_sim package contains a static field and goal. A local Python planner accepts a predicted goal-plane coordinate and returns a candidate two-axis target under the assumptions in [keeper.design.json](../config/keeper.design.json). These values define a software model, not demonstrated motion performance. The planner is hardware-disabled and only previews the serial protocol line. The repository still has no executable ROS 2 nodes, robot URDF, camera pipeline, or connected execution adapter. The separate [ROS example configuration](../config/keeper.example.yaml) contains fields for later software integration.
+The goalkeeper_sim package contains a field, regulation goal, initial ball, and launch file. The goalkeeper_description package has a generated slide/tilt URDF matching the planner's body-part geometry. The penalty_shooter package has a ROS 2 shooter node using the installed geometry configuration. A local Python planner accepts a predicted goal-plane coordinate and returns a candidate pose and action path. The planner remains hardware-disabled and only previews a serial protocol line. Custom ROS messages, perception, the interception nodes, and a connected motion execution adapter remain unimplemented. Gazebo integration has not been runtime-verified here. The separate [ROS example configuration](../config/keeper.example.yaml) remains an unconsumed design placeholder.
 
 Use the [implementation plan](implementation-plan.md) to build and validate these components in order.

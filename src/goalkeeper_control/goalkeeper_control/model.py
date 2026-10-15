@@ -30,18 +30,43 @@ class Axis:
 
 
 @dataclass(frozen=True)
+class FootprintRectangle:
+    name: str
+    center_y_m: float
+    center_z_m: float
+    width_m: float
+    height_m: float
+
+    def validate(self):
+        if not isinstance(self.name, str) or not self.name:
+            raise ValueError("Each footprint part needs a name")
+        for key in ("center_y_m", "center_z_m", "width_m", "height_m"):
+            finite(getattr(self, key), f"{self.name}.{key}")
+        if self.width_m <= 0 or self.height_m <= 0:
+            raise ValueError("Footprint dimensions must be positive")
+
+    def corners(self):
+        return [(self.center_y_m + sy * self.width_m / 2,
+                 self.center_z_m + sz * self.height_m / 2)
+                for sy in (-1, 1) for sz in (-1, 1)]
+
+
+@dataclass(frozen=True)
 class Design:
     goal_width_m: float
     goal_height_m: float
-    panel_width_m: float
-    panel_length_m: float
-    panel_thickness_m: float
+    goal_plane_world_x_m: float
+    penalty_distance_m: float
+    post_radius_m: float
     pivot_height_m: float
-    panel_mass_kg: float
-    translating_mass_kg: float
     ball_radius_m: float
     minimum_overlap_m: float
     frame_clearance_m: float
+    keeper_height_m: float
+    keeper_arm_span_m: float
+    keeper_mass_kg: float
+    keeper_depth_m: float
+    footprint: tuple
     slide: Axis
     tilt: Axis
     flight_time_s: float
@@ -55,15 +80,21 @@ class Design:
     @classmethod
     def load(cls, filename):
         raw = json.loads(Path(filename).read_text(encoding="utf-8"))
-        if raw.get("schema_version") != 2:
-            raise ValueError("Expected configuration schema_version 2")
+        if raw.get("schema_version") != 3:
+            raise ValueError("Expected configuration schema_version 3 (adult keeper silhouette)")
         if raw.get("hardware_enabled") is not False:
             raise ValueError("This planner release supports hardware_enabled=false only")
         geometry = raw["geometry"]
         timing = raw["timing"]
         search = raw["planning"]
+        keeper = raw["keeper"]
         result = cls(
             **geometry,
+            keeper_height_m=keeper["height_m"],
+            keeper_arm_span_m=keeper["arm_span_m"],
+            keeper_mass_kg=keeper["mass_kg"],
+            keeper_depth_m=keeper["depth_m"],
+            footprint=tuple(FootprintRectangle(**part) for part in keeper["footprint"]),
             slide=Axis(**raw["motion"]["slide"]),
             tilt=Axis(**raw["motion"]["tilt"]),
             **timing,
@@ -76,8 +107,19 @@ class Design:
     def validate(self):
         self.slide.validate("slide")
         self.tilt.validate("tilt")
+        if not self.footprint or len(self.footprint) > 32:
+            raise ValueError("Expected between 1 and 32 footprint parts")
+        for part in self.footprint:
+            part.validate()
+        if len({part.name for part in self.footprint}) != len(self.footprint):
+            raise ValueError("Footprint names must be unique")
+        corners = [point for part in self.footprint for point in part.corners()]
+        width = max(p[0] for p in corners) - min(p[0] for p in corners)
+        height = max(p[1] for p in corners) - min(p[1] for p in corners)
+        if abs(width - self.keeper_arm_span_m) > 1e-8 or abs(height - self.keeper_height_m) > 1e-8:
+            raise ValueError("Footprint bounds must match keeper height and arm span")
         for name, value in vars(self).items():
-            if isinstance(value, Axis):
+            if isinstance(value, Axis) or name == "footprint":
                 continue
             finite(value, name)
             if value <= 0:
