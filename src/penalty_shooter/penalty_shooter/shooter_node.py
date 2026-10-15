@@ -1,40 +1,37 @@
+import os
 import rclpy
 from rclpy.node import Node
+from ament_index_python.packages import get_package_share_directory
 
 from ros_gz_interfaces.msg import EntityWrench
 from ros_gz_interfaces.msg import Entity
 from ros_gz_interfaces.srv import DeleteEntity, SpawnEntity
 
-# import math
 import random
 
 class PenaltyShooter(Node): 
-    # inherit from Node
-
     def __init__(self):
         super().__init__('penalty_shooter')
 
         self.publisher = self.create_publisher(EntityWrench, '/world/goalkeeper_world/wrench', 10)
-
         self._delete_client = self.create_client(DeleteEntity, 'world/goalkeeper_world/remove')
-
         self._spawn_client = self.create_client(SpawnEntity, '/world/goalkeeper_world/create')
 
-        self._ball_model_path = (
-            '/home/yla0123/mie1075_ws/src/'
-            'goalkeeper_sim/models/soccer_ball/model.sdf'
-        )
+        # Dynamischer Pfad zum Ball-Modell über das goalkeeper_sim-Paket
+        sim_pkg = get_package_share_directory('goalkeeper_sim')
+        self._ball_model_path = os.path.join(sim_pkg, 'models', 'soccer_ball', 'model.sdf')
 
-        # start the shot after 1 sec
+        # Rest des Codes bleibt gleich...
         self._kick_timer = self.create_timer(1.0, self._kick_after_reset) 
 
-        # Initial position
         self._ball_x = -1.0
         self._ball_y = 0.0
         self._ball_z = 0.11
 
         self._ball_mass = 0.43
         self._goal_x = 10.0
+
+    # (Die restlichen Methoden bleiben unverändert wie in deinem Skript)
 
     def kick_ball(self):
 

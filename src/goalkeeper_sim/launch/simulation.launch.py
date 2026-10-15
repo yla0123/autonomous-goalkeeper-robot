@@ -48,14 +48,38 @@ def generate_launch_description():
         arguments=[
             '-topic', 'robot_description',
             '-name', 'goalkeeper_robot',
-            '-x', '10.0', '-y', '0.0', '-z', '0.5'  # Position direkt vor dem Tor anpassen
+            '-x', '10.0', '-y', '0.0', '-z', '0.5'  # Position im Tor
         ],
         output='screen'
     )
+
+    # 4. Penalty Shooter Node hinzufügen
+    penalty_shooter_node = Node(
+        package='penalty_shooter',
+        executable='shooter_node', 
+        output='screen'
+    )
+
+    # 5. Korrigierte ROS-GZ Bridge mit vollständigen Typen
+    bridge_node = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=[
+            # Wrench-Topic (mit gz.msgs.EntityWrench)
+            '/world/goalkeeper_world/wrench@ros_gz_interfaces/msg/EntityWrench@gz.msgs.EntityWrench',
+            # Delete Entity Service
+            '/world/goalkeeper_world/remove@ros_gz_interfaces/srv/DeleteEntity@gz.msgs.Entity@gz.msgs.Boolean',
+            # Spawn/Create Entity Service
+            '/world/goalkeeper_world/create@ros_gz_interfaces/srv/EntityFactory@gz.msgs.EntityFactory@gz.msgs.Boolean'
+        ],
+        output='screen'
+)
 
     return LaunchDescription([
         set_env_vars,
         gz_sim_launch,
         robot_state_publisher_node,
-        spawn_robot
+        spawn_robot,
+        penalty_shooter_node,
+        bridge_node
     ])
